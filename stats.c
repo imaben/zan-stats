@@ -131,7 +131,7 @@ static void draw_base_info()
     draw_text_with_width(currrow, LEFT_ALIGN, "worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 100, 200);
     line_step();
     draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "task worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 50, 100);
-}
+    }
 
 static zs_worker_detail *worker_detail_new(char *title, int width, int height, int x, int y, int total_worker)
 {
@@ -151,18 +151,18 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
 
     // show
     box(detail->win, 0, 0);
-	mvwaddch(detail->win, 2, 0, ACS_LTEE);
-	mvwhline(detail->win, 2, 1, ACS_HLINE, width - 2);
-	mvwaddch(detail->win, 2, width - 1, ACS_RTEE);
+    mvwaddch(detail->win, 2, 0, ACS_LTEE);
+    mvwhline(detail->win, 2, 1, ACS_HLINE, width - 2);
+    mvwaddch(detail->win, 2, width - 1, ACS_RTEE);
 
     // print title
     int length, tx;
     length = strlen(title);
-	tx = (int)(width - length)/ 2;
-	wattron(detail->win, COLOR_PAIR(ZS_COLOR_GREEN));
-	mvwprintw(detail->win, 1, tx, "%s", title);
-	wattroff(detail->win, COLOR_PAIR(ZS_COLOR_GREEN));
-	refresh();
+    tx = (int)(width - length)/ 2;
+    wattron(detail->win, COLOR_PAIR(ZS_COLOR_GREEN));
+    mvwprintw(detail->win, 1, tx, "%s", title);
+    wattroff(detail->win, COLOR_PAIR(ZS_COLOR_GREEN));
+    refresh();
 
     // draw th
     int i, th_width = width - 2, pad;
@@ -178,7 +178,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
     // to draw
     char tmp[256] = {0};
     wmove(detail->win, 3, 1);
-	wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
+    wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
     for (i = 0; i < WORKER_DETAIL_TH_NUM; i++) {
         wprintw(detail->win, "%s", th[i]);
         if ((pad = (detail->th_width[i] - strlen(th[i]))) > 0) {
@@ -187,7 +187,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
             wprintw(detail->win, "%s", tmp);
         }
     }
-	wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
+    wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
 
     return detail;
 }
@@ -283,28 +283,44 @@ static void draw_worker_detail()
         worker_detail_update(worker_detail, i, &item);
     }
     refresh();
-	update_panels();
-	doupdate();
+    update_panels();
+    doupdate();
     worker_detail_refresh(worker_detail);
 }
 
 static void draw_task_worker_detail()
 {
-    int width, height;
+    int worker_num = 32;
+    int width, height, i;
     width = (COL - (LEFT_ALIGN * 2)) / 2 - 5;
     height = ROW - currrow - 1;
     zs_worker_detail *worker_detail = worker_detail_new("Task Worker Detail",
-            width, height, LEFT_ALIGN + width + 11, currrow, 32);
+            width, height, LEFT_ALIGN + width + 11, currrow, worker_num);
+    struct worker_detail_item item;
+    for (i = 0; i < worker_num; i++) {
+        item.worker_id = i + 1;
+        strcpy(item.start_time, "11:11:11");
+        item.total_request = i * 201 + 10;
+        item.request = i * 101 + 4;
+        if (i % 2 == 0) {
+            strcpy(item.status, "BUSY");
+        } else {
+            strcpy(item.status, "IDLE");
+        }
+        worker_detail_update(worker_detail, i, &item);
+    }
+
+    worker_detail_refresh(worker_detail);
     refresh();
-	update_panels();
-	doupdate();
+    update_panels();
+    doupdate();
 }
 
 int main() {
     initscr();    /* initializes curses */
     start_color();
     noecho();
-	cbreak();
+    cbreak();
     color_init();
     getmaxyx(stdscr, ROW, COL);
 #if 1
