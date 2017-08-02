@@ -192,6 +192,56 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
     return detail;
 }
 
+static int worker_detail_update(zs_worker_detail *detail, int offset, struct worker_detail_item *item)
+{
+    if (offset > (detail->total_worker - 1)) {
+        return -1;
+    }
+
+    struct worker_detail_item *old = &detail->item[offset];
+    memcpy(old, item, sizeof(struct worker_detail_item));
+
+    return 0;
+}
+
+static void worker_detail_refresh(zs_worker_detail *detail)
+{
+    int i = 0, pad;
+    char tmp[64] = {0};
+    char fmt[16] = {0};
+
+    for (; i < detail->total_worker; i++) {
+        wmove(detail->win, 4 + i, 1);
+        // worker_id
+        sprintf(fmt, " %%-%dd", detail->th_width[0] - 1);
+        sprintf(tmp, fmt, detail->item[i].worker_id);
+        wprintw(detail->win, "%s", tmp);
+
+        // start_time
+        sprintf(fmt, "%%-%ds", detail->th_width[1] + 1);
+        sprintf(tmp, fmt, detail->item[i].start_time);
+        wprintw(detail->win, "%s", tmp);
+
+        // total request
+        sprintf(fmt, "%%-%dd", detail->th_width[2] + 4);
+        sprintf(tmp, fmt, detail->item[i].total_request);
+        wprintw(detail->win, "%s", tmp);
+
+        // request
+        sprintf(fmt, "%%-%dd", detail->th_width[3] - 2);
+        sprintf(tmp, fmt, detail->item[i].request);
+        wprintw(detail->win, "%s", tmp);
+
+        // status
+        sprintf(fmt, "%%-%ds", detail->th_width[4] - 3);
+        sprintf(tmp, fmt, detail->item[i].status);
+        wprintw(detail->win, "%s", tmp);
+
+        if (i > (detail->height - 7)) {
+            break;
+        }
+    }
+}
 
 static void worker_detail_free(zs_worker_detail* d)
 {
@@ -213,14 +263,29 @@ static void draw_worker_detail()
     currrow++;
     currrow++;
 
-    int width, height;
+    int worker_num = 32;
+    int width, height, i;
     width = (COL - (LEFT_ALIGN * 2)) / 2 - 5;
     height = ROW - currrow - 1;
     zs_worker_detail *worker_detail = worker_detail_new("Worker Detail",
             width, height, LEFT_ALIGN, currrow, 32);
+    struct worker_detail_item item;
+    for (i = 0; i < worker_num; i++) {
+        item.worker_id = i + 1;
+        strcpy(item.start_time, "11:11:11");
+        item.total_request = i * 201 + 10;
+        item.request = i * 101 + 4;
+        if (i % 2 == 0) {
+            strcpy(item.status, "BUSY");
+        } else {
+            strcpy(item.status, "IDLE");
+        }
+        worker_detail_update(worker_detail, i, &item);
+    }
     refresh();
 	update_panels();
 	doupdate();
+    worker_detail_refresh(worker_detail);
 }
 
 static void draw_task_worker_detail()

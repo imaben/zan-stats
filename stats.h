@@ -29,10 +29,10 @@ typedef struct {
 
 struct worker_detail_item {
     int worker_id;
+    char start_time[32];
     int total_request;
     int request;
     char status[8];
-    char start_time[32];
 };
 
 typedef struct {
@@ -46,6 +46,9 @@ typedef struct {
 
     struct worker_detail_item *item;
     int th_width[WORKER_DETAIL_TH_NUM];
+
+    int offset;
+    int cursor;
 } zs_worker_detail;
 
 #define zs_select_color(color) attrset(COLOR_PAIR(color))
