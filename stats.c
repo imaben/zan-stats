@@ -1,9 +1,8 @@
-#include <curses.h>
 #include <unistd.h>
 #include <math.h>
 #include <assert.h>
 #include <string.h>
-#include <panel.h>
+#include <stdlib.h>
 #include "stats.h"
 
 static int ROW, COL;
@@ -18,6 +17,7 @@ static void color_init()
     init_pair(ZS_COLOR_RED, COLOR_RED, -1);
     init_pair(ZS_COLOR_GREEN, COLOR_GREEN, -1);
     init_pair(ZS_COLOR_CYAN, COLOR_CYAN, -1);
+    init_pair(ZS_COLOR_BLACK_GREEN, 0, COLOR_CYAN);
 }
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2)
@@ -61,7 +61,7 @@ static void draw_worker_stats()
     mvaddnstr(currrow++, LEFT_ALIGN, worker_stats, sizeof(worker_stats));
     sprintf(tmp, "%d/%d/%d", 64, 30, 50);
     draw_progress_bar(sizeof(worker_stats) + 1, 3,
-            COL - sizeof(worker_stats) - strlen(tmp) - 6, 64, 30, 50);
+            COL - sizeof(worker_stats) - strlen(tmp) - 7, 64, 30, 50);
 }
 
 static void draw_task_worker_stats()
@@ -72,7 +72,7 @@ static void draw_task_worker_stats()
     sprintf(tmp, "%d/%d/%d", 64, 20, 40);
     mvaddnstr(currrow++, LEFT_ALIGN, worker_stats, sizeof(worker_stats));
     draw_progress_bar(sizeof(worker_stats) + 1, 4,
-            COL - sizeof(worker_stats) - strlen(tmp) - 6, 64, 20, 40);
+            COL - sizeof(worker_stats) - strlen(tmp) - 7, 64, 20, 40);
     currrow++;
 }
 
@@ -133,37 +133,79 @@ static void draw_base_info()
     draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "task worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 50, 100);
 }
 
-static void print_in_middle(WINDOW *win, int starty, int startx, int width, char *string, chtype color)
-{	int length, x, y;
-	float temp;
-
-	if(win == NULL)
-		win = stdscr;
-	getyx(win, y, x);
-	if(startx != 0)
-		x = startx;
-	if(starty != 0)
-		y = starty;
-	if(width == 0)
-		width = 80;
-
-	length = strlen(string);
-	temp = (width - length)/ 2;
-	x = startx + (int)temp;
-	wattron(win, color);
-	mvwprintw(win, y, x, "%s", string);
-	wattroff(win, color);
-	refresh();
-}
-static void win_show(WINDOW *win, char *label, int label_color,
-        int startx, int starty, int height, int width)
+static zs_worker_detail *worker_detail_new(char *title, int width, int height, int x, int y, int total_worker)
 {
-	box(win, 0, 0);
-	mvwaddch(win, 2, 0, ACS_LTEE);
-	mvwhline(win, 2, 1, ACS_HLINE, width - 2);
-	mvwaddch(win, 2, width - 1, ACS_RTEE);
+    zs_worker_detail *detail = malloc(sizeof(zs_worker_detail));
+    memset(detail, 0, sizeof(zs_worker_detail));
 
-	print_in_middle(win, 1, 0, width, label, COLOR_PAIR(label_color));
+    detail->width = width;
+    detail->height = height;
+    detail->x = x;
+    detail->y = y;
+
+    detail->total_worker = total_worker;
+    detail->item = calloc(sizeof(struct worker_detail_item), total_worker);
+
+    detail->win = newwin(height, width, y, x);
+    detail->panel = new_panel(detail->win);
+
+    // show
+    box(detail->win, 0, 0);
+	mvwaddch(detail->win, 2, 0, ACS_LTEE);
+	mvwhline(detail->win, 2, 1, ACS_HLINE, width - 2);
+	mvwaddch(detail->win, 2, width - 1, ACS_RTEE);
+
+    // print title
+    int length, tx;
+    length = strlen(title);
+	tx = (int)(width - length)/ 2;
+	wattron(detail->win, COLOR_PAIR(ZS_COLOR_GREEN));
+	mvwprintw(detail->win, 1, tx, "%s", title);
+	wattroff(detail->win, COLOR_PAIR(ZS_COLOR_GREEN));
+	refresh();
+
+    // draw th
+    int i, th_width = width - 2, pad;
+    int col_width = floor(th_width / WORKER_DETAIL_TH_NUM);
+    char *th[] = WORKER_DETAIL_TH;
+    for (i = 0; i < WORKER_DETAIL_TH_NUM; i++) {
+        detail->th_width[i] = col_width;
+    }
+    if ((pad = (col_width * WORKER_DETAIL_TH_NUM)) < th_width) {
+        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += pad;
+    }
+
+    // to draw
+    char tmp[256] = {0};
+    wmove(detail->win, 3, 1);
+	wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
+    for (i = 0; i < WORKER_DETAIL_TH_NUM; i++) {
+        wprintw(detail->win, "%s", th[i]);
+        if ((pad = (detail->th_width[i] - strlen(th[i]))) > 0) {
+            memset(tmp, ' ', pad);
+            tmp[strlen(th[i])] = '\0';
+            wprintw(detail->win, "%s", tmp);
+        }
+    }
+	wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
+
+    return detail;
+}
+
+
+static void worker_detail_free(zs_worker_detail* d)
+{
+    if (d->win) {
+        delwin(d->win);
+    }
+    if (d->panel) {
+        del_panel(d->panel);
+    }
+    if (d->item) {
+        free(d->item);
+    }
+    free(d);
+    d = NULL;
 }
 
 static void draw_worker_detail()
@@ -171,32 +213,24 @@ static void draw_worker_detail()
     currrow++;
     currrow++;
 
-    WINDOW *worker_win;
-    PANEL *worker_panel;
-    char *title = "Worker Detail";
-
     int width, height;
     width = (COL - (LEFT_ALIGN * 2)) / 2 - 5;
     height = ROW - currrow - 1;
-    worker_win = newwin(height, width, currrow, LEFT_ALIGN);
-    worker_panel = new_panel(worker_win);
-    win_show(worker_win, title, ZS_COLOR_GREEN, LEFT_ALIGN, currrow, height, width);
+    zs_worker_detail *worker_detail = worker_detail_new("Worker Detail",
+            width, height, LEFT_ALIGN, currrow, 32);
+    refresh();
 	update_panels();
 	doupdate();
 }
 
 static void draw_task_worker_detail()
 {
-    WINDOW *worker_win;
-    PANEL *worker_panel;
-    char *title = "Task Worker Detail";
-
     int width, height;
     width = (COL - (LEFT_ALIGN * 2)) / 2 - 5;
     height = ROW - currrow - 1;
-    worker_win = newwin(height, width, currrow, LEFT_ALIGN + width + 5);
-    worker_panel = new_panel(worker_win);
-    win_show(worker_win, title, ZS_COLOR_GREEN, LEFT_ALIGN + width + 5, currrow, height, width);
+    zs_worker_detail *worker_detail = worker_detail_new("Task Worker Detail",
+            width, height, LEFT_ALIGN + width + 11, currrow, 32);
+    refresh();
 	update_panels();
 	doupdate();
 }
@@ -216,7 +250,7 @@ int main() {
 #endif
     draw_worker_detail();
     draw_task_worker_detail();
-    //refresh();
+    refresh();
     getch();
     endwin();     /* cleanup curses */
     return 0;
