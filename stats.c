@@ -172,20 +172,18 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
         detail->th_width[i] = col_width;
     }
     if ((pad = (col_width * WORKER_DETAIL_TH_NUM)) < th_width) {
-        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += pad;
+        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += th_width - pad;;
     }
 
     // to draw
     char tmp[256] = {0};
+    char fmt[16] = {0};
     wmove(detail->win, 3, 1);
     wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
     for (i = 0; i < WORKER_DETAIL_TH_NUM; i++) {
-        wprintw(detail->win, "%s", th[i]);
-        if ((pad = (detail->th_width[i] - strlen(th[i]))) > 0) {
-            memset(tmp, ' ', pad);
-            tmp[strlen(th[i])] = '\0';
-            wprintw(detail->win, "%s", tmp);
-        }
+        sprintf(fmt, "%%-%ds", detail->th_width[0]);
+        sprintf(tmp, fmt, th[i]);
+        wprintw(detail->win, "%s", tmp);
     }
     wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
 
@@ -207,35 +205,33 @@ static int worker_detail_update(zs_worker_detail *detail, int offset, struct wor
 static void worker_detail_refresh(zs_worker_detail *detail)
 {
     int i = 0, pad;
-    char tmp[64] = {0};
+    char tmp[256] = {0};
     char fmt[16] = {0};
 
     for (; i < detail->total_worker; i++) {
         wmove(detail->win, 4 + i, 1);
         // worker_id
-        sprintf(fmt, " %%-%dd", detail->th_width[0] - 1);
+        sprintf(fmt, "%%-%dd", detail->th_width[0]);
         sprintf(tmp, fmt, detail->item[i].worker_id);
         wprintw(detail->win, "%s", tmp);
 
         // start_time
-        sprintf(fmt, "%%-%ds", detail->th_width[1] + 1);
+        sprintf(fmt, "%%-%ds", detail->th_width[1]);
         sprintf(tmp, fmt, detail->item[i].start_time);
         wprintw(detail->win, "%s", tmp);
 
         // total request
-        sprintf(fmt, "%%-%dd", detail->th_width[2] + 4);
+        sprintf(fmt, "%%-%dd", detail->th_width[2]);
         sprintf(tmp, fmt, detail->item[i].total_request);
         wprintw(detail->win, "%s", tmp);
 
         // request
-        sprintf(fmt, "%%-%dd", detail->th_width[3] - 2);
+        sprintf(fmt, "%%-%dd", detail->th_width[3]);
         sprintf(tmp, fmt, detail->item[i].request);
         wprintw(detail->win, "%s", tmp);
 
         // status
-        sprintf(fmt, "%%-%ds", detail->th_width[4] - 3);
-        sprintf(tmp, fmt, detail->item[i].status);
-        wprintw(detail->win, "%s", tmp);
+        wprintw(detail->win, "%s", detail->item[i].status);
 
         if (i > (detail->height - 7)) {
             break;

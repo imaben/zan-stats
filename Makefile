@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g -D_GNU_SOURCE -D_DEFAULT_SOURCE
-LIBS=-lncursesw -lm -lpanelw -L/usr/local/Cellar/ncurses/6.0_1/lib
+LIBS=-lncursesw -lm -lpanelw
 PROC=zan-stats
 
 all:
