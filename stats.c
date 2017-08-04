@@ -208,13 +208,13 @@ static int worker_detail_update(zs_worker_detail *detail, int offset, struct wor
 
 static void worker_detail_refresh(zs_worker_detail *detail)
 {
-    int i = 0, pad;
+    int i, j, pad;
     char tmp[64] = {0};
     char fmt[16] = {0};
 
-    for (; i < detail->total_worker; i++) {
-        wmove(detail->win, 4 + i, 1);
-        if (current_detail == detail && detail->cursor == i) {
+    for (i = detail->offset, j = 0; i < detail->total_worker; i++, j++) {
+        wmove(detail->win, 4 + j, 1);
+        if (current_detail == detail && detail->cursor == j) {
             wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_CYAN));
         }
         // worker_id
@@ -242,14 +242,15 @@ static void worker_detail_refresh(zs_worker_detail *detail)
         sprintf(tmp, fmt, detail->item[i].status);
         wprintw(detail->win, "%s", tmp);
 
-        if (current_detail == detail && detail->cursor == i) {
+        if (current_detail == detail && detail->cursor == j) {
             wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_CYAN));
         }
 
-        if (i > (detail->height - 7)) {
+        if (j > (detail->height - 7)) {
             break;
         }
     }
+    wrefresh(detail->win);
 }
 
 static void worker_detail_free(zs_worker_detail* d)
@@ -324,6 +325,20 @@ static void draw_task_worker_detail()
     doupdate();
 }
 
+static void key_event_handler(int key)
+{
+    if (key == KEY_DOWN) {
+        if (current_detail->cursor > (current_detail->height - 7)) {
+            if ((current_detail->offset + current_detail->cursor + 1) < current_detail->total_worker) {
+                current_detail->offset++;
+            }
+        } else {
+            current_detail->cursor++;
+        }
+    }
+    worker_detail_refresh(current_detail);
+}
+
 int main() {
     initscr();    /* initializes curses */
     start_color();
@@ -350,6 +365,12 @@ int main() {
             case 'Q':
             case 'q':
                 quit = 1;
+                break;
+            case KEY_LEFT:
+            case KEY_RIGHT:
+            case KEY_UP:
+            case KEY_DOWN:
+                key_event_handler(key);
                 break;
         }
         if (quit) {
