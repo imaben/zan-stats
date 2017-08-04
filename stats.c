@@ -335,6 +335,14 @@ static void key_event_handler(int key)
         } else {
             current_detail->cursor++;
         }
+    } else if (key == KEY_UP) {
+        if (current_detail->cursor == 0) {
+            if (current_detail->offset > 0) {
+                current_detail->offset--;
+            }
+        } else {
+            current_detail->cursor--;
+        }
     }
     worker_detail_refresh(current_detail);
 }
