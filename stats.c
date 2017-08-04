@@ -9,6 +9,8 @@ static int ROW, COL;
 static int currrow = 1;
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2);
+static zs_worker_detail *current_detail = NULL;
+static zs_worker_detail *worker_details[2] = {0};
 
 static void color_init()
 {
@@ -17,7 +19,8 @@ static void color_init()
     init_pair(ZS_COLOR_RED, COLOR_RED, -1);
     init_pair(ZS_COLOR_GREEN, COLOR_GREEN, -1);
     init_pair(ZS_COLOR_CYAN, COLOR_CYAN, -1);
-    init_pair(ZS_COLOR_BLACK_GREEN, 0, COLOR_CYAN);
+    init_pair(ZS_COLOR_BLACK_GREEN, 0, COLOR_GREEN);
+    init_pair(ZS_COLOR_BLACK_CYAN, 0, COLOR_CYAN);
 }
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2)
@@ -131,7 +134,7 @@ static void draw_base_info()
     draw_text_with_width(currrow, LEFT_ALIGN, "worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 100, 200);
     line_step();
     draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "task worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 50, 100);
-    }
+}
 
 static zs_worker_detail *worker_detail_new(char *title, int width, int height, int x, int y, int total_worker)
 {
@@ -149,6 +152,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
     detail->win = newwin(height, width, y, x);
     detail->panel = new_panel(detail->win);
 
+    keypad(detail->win, TRUE);
     // show
     box(detail->win, 0, 0);
     mvwaddch(detail->win, 2, 0, ACS_LTEE);
@@ -172,7 +176,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
         detail->th_width[i] = col_width;
     }
     if ((pad = (col_width * WORKER_DETAIL_TH_NUM)) < th_width) {
-        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += th_width - pad;;
+        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += pad;
     }
 
     // to draw
@@ -205,11 +209,14 @@ static int worker_detail_update(zs_worker_detail *detail, int offset, struct wor
 static void worker_detail_refresh(zs_worker_detail *detail)
 {
     int i = 0, pad;
-    char tmp[256] = {0};
+    char tmp[64] = {0};
     char fmt[16] = {0};
 
     for (; i < detail->total_worker; i++) {
         wmove(detail->win, 4 + i, 1);
+        if (current_detail == detail && detail->cursor == i) {
+            wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_CYAN));
+        }
         // worker_id
         sprintf(fmt, "%%-%dd", detail->th_width[0]);
         sprintf(tmp, fmt, detail->item[i].worker_id);
@@ -231,7 +238,13 @@ static void worker_detail_refresh(zs_worker_detail *detail)
         wprintw(detail->win, "%s", tmp);
 
         // status
-        wprintw(detail->win, "%s", detail->item[i].status);
+        sprintf(fmt, "%%-%ds", detail->th_width[4]);
+        sprintf(tmp, fmt, detail->item[i].status);
+        wprintw(detail->win, "%s", tmp);
+
+        if (current_detail == detail && detail->cursor == i) {
+            wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_CYAN));
+        }
 
         if (i > (detail->height - 7)) {
             break;
@@ -244,14 +257,10 @@ static void worker_detail_free(zs_worker_detail* d)
     if (d->win) {
         delwin(d->win);
     }
-    if (d->panel) {
-        del_panel(d->panel);
-    }
     if (d->item) {
         free(d->item);
     }
     free(d);
-    d = NULL;
 }
 
 static void draw_worker_detail()
@@ -265,6 +274,8 @@ static void draw_worker_detail()
     height = ROW - currrow - 1;
     zs_worker_detail *worker_detail = worker_detail_new("Worker Detail",
             width, height, LEFT_ALIGN, currrow, 32);
+    worker_details[0] = worker_detail;
+    current_detail = worker_detail;
     struct worker_detail_item item;
     for (i = 0; i < worker_num; i++) {
         item.worker_id = i + 1;
@@ -292,6 +303,7 @@ static void draw_task_worker_detail()
     height = ROW - currrow - 1;
     zs_worker_detail *worker_detail = worker_detail_new("Task Worker Detail",
             width, height, LEFT_ALIGN + width + 11, currrow, worker_num);
+    worker_details[1] = worker_detail;
     struct worker_detail_item item;
     for (i = 0; i < worker_num; i++) {
         item.worker_id = i + 1;
@@ -317,6 +329,7 @@ int main() {
     start_color();
     noecho();
     cbreak();
+    curs_set(0);
     color_init();
     getmaxyx(stdscr, ROW, COL);
 #if 1
@@ -328,7 +341,30 @@ int main() {
     draw_worker_detail();
     draw_task_worker_detail();
     refresh();
-    getch();
+
+    // main loop
+    int key, quit = 0;
+    for (;;) {
+        key = wgetch(worker_details[1]->win);
+        switch (key) {
+            case 'Q':
+            case 'q':
+                quit = 1;
+                break;
+        }
+        if (quit) {
+            break;
+        }
+    }
+
+    if (worker_details[0]) {
+        worker_detail_free(worker_details[0]);
+    }
+
+    if (worker_details[1]) {
+        worker_detail_free(worker_details[1]);
+    }
+
     endwin();     /* cleanup curses */
     return 0;
 }

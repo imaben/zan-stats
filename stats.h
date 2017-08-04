@@ -19,7 +19,8 @@ enum zs_colors {
     ZS_COLOR_RED,
     ZS_COLOR_GREEN,
     ZS_COLOR_CYAN,
-    ZS_COLOR_BLACK_GREEN
+    ZS_COLOR_BLACK_GREEN,
+    ZS_COLOR_BLACK_CYAN
 };
 
 typedef struct {
