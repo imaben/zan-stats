@@ -184,11 +184,13 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
     char fmt[16] = {0};
     wmove(detail->win, 3, 1);
     wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
+    zs_bold_on();
     for (i = 0; i < WORKER_DETAIL_TH_NUM; i++) {
         sprintf(fmt, "%%-%ds", detail->th_width[0]);
         sprintf(tmp, fmt, th[i]);
         wprintw(detail->win, "%s", tmp);
     }
+    zs_bold_off();
     wattroff(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
 
     return detail;
