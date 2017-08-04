@@ -343,6 +343,16 @@ static void key_event_handler(int key)
         } else {
             current_detail->cursor--;
         }
+    } else if (key == KEY_LEFT) {
+        if (current_detail == worker_details[1]) {
+            current_detail = worker_details[0];
+            worker_detail_refresh(worker_details[1]);
+        }
+    } else if (key == KEY_RIGHT) {
+        if (current_detail == worker_details[0]) {
+            current_detail = worker_details[1];
+            worker_detail_refresh(worker_details[0]);
+        }
     }
     worker_detail_refresh(current_detail);
 }
