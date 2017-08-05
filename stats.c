@@ -180,7 +180,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
     }
 
     // to draw
-    char tmp[256] = {0};
+    char tmp[512] = {0};
     char fmt[16] = {0};
     wmove(detail->win, 3, 1);
     wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
@@ -211,7 +211,7 @@ static int worker_detail_update(zs_worker_detail *detail, int offset, struct wor
 static void worker_detail_refresh(zs_worker_detail *detail)
 {
     int i, j, pad;
-    char tmp[64] = {0};
+    char tmp[512] = {0};
     char fmt[16] = {0};
 
     for (i = detail->offset, j = 0; i < detail->total_worker; i++, j++) {
