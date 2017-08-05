@@ -3,10 +3,13 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include "stats.h"
 
 static int ROW, COL;
 static int currrow = 1;
+static int update_interval = 1;
+static char *request_url = NULL;
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2);
 static zs_worker_detail *current_detail = NULL;
@@ -359,7 +362,60 @@ static void key_event_handler(int key)
     worker_detail_refresh(current_detail);
 }
 
-int main() {
+static void usage()
+{
+    const char *usage = "_____              _____ __        __\n"
+        "/__  /  ____ _____ / ___// /_____ _/ /______\n"
+        "  / /  / __ `/ __ \\\\__ \\/ __/ __ `/ __/ ___/\n"
+        " / /__/ /_/ / / / /__/ / /_/ /_/ / /_(__  )\n"
+        "/____/\\__,_/_/ /_/____/\\__/\\__,_/\\__/____/\n\n\n"
+        "zan-stats [options] <url>\n\n"
+        "options:\n"
+        " -n <secs> seconds to wait between updates\n"
+        " -h        show helper\n"
+        " -v        show version\n\n";
+    fprintf(stdout, "%s", usage);
+}
+
+static int parse_options(int argc, char **argv)
+{
+    int ch, c = 0;
+    while ((ch = getopt(argc, argv, "n:hv")) != -1) {
+        switch (ch) {
+            case 'n':
+                update_interval = atoi(optarg);
+                if (update_interval <= 0) {
+                    usage();
+                    return -1;
+                }
+                c += 2;
+                break;
+            case 'h':
+                usage();
+                return -1;
+            case 'v':
+                fprintf(stdout, "Zan Stats " ZS_VERSION);
+                return -1;
+            case '?':
+                return -1;
+        }
+    }
+
+    if (argc < (2 + c)) {
+        usage();
+        return -1;
+    }
+    request_url = strdup(argv[argc - 1]);
+
+    return -1;
+}
+
+int main(int argc, char **argv)
+{
+    if (parse_options(argc, argv) < 0) {
+        return 1;
+    }
+
     initscr();    /* initializes curses */
     start_color();
     noecho();
@@ -367,12 +423,10 @@ int main() {
     curs_set(0);
     color_init();
     getmaxyx(stdscr, ROW, COL);
-#if 1
     draw_title();
     draw_worker_stats();
     draw_task_worker_stats();
     draw_base_info();
-#endif
     draw_worker_detail();
     draw_task_worker_detail();
     refresh();

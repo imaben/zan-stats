@@ -3,6 +3,8 @@
 #include <curses.h>
 #include <panel.h>
 
+#define ZS_VERSION "0.0.1"
+
 typedef unsigned int uint;
 
 #define WORKER_DETAIL_TH { \
