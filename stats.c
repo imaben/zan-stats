@@ -4,12 +4,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <curl/curl.h>
 #include "stats.h"
 
 static int ROW, COL;
 static int currrow = 1;
 static int update_interval = 1;
 static char *request_url = NULL;
+static CURL *curl;
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2);
 static zs_worker_detail *current_detail = NULL;
@@ -407,7 +409,38 @@ static int parse_options(int argc, char **argv)
     }
     request_url = strdup(argv[argc - 1]);
 
-    return -1;
+    return 0;
+}
+
+static int curl_init()
+{
+    CURLcode return_code;
+    return_code = curl_global_init(CURL_GLOBAL_ALL);
+    if (CURLE_OK != return_code)
+    {
+        fprintf(stderr, "init libcurl failed.\n");
+        return -1;
+    }
+
+    curl = curl_easy_init();
+    if (!curl) {
+        fprintf(stderr, "init curl failed.\n");
+        return -1;
+    }
+    return 0;
+}
+
+static void curl_cleanup()
+{
+    if (curl) {
+        curl_easy_cleanup(curl);
+    }
+    curl_global_cleanup();
+}
+
+static int refresh_all()
+{
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -416,6 +449,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // init curl
+    if (curl_init() < 0) {
+        return 1;
+    }
     initscr();    /* initializes curses */
     start_color();
     noecho();
@@ -459,7 +496,7 @@ int main(int argc, char **argv)
     if (worker_details[1]) {
         worker_detail_free(worker_details[1]);
     }
-
     endwin();     /* cleanup curses */
+    curl_cleanup();
     return 0;
 }
