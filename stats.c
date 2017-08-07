@@ -4,8 +4,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <time.h>
 #include <curl/curl.h>
 #include "stats.h"
+#include "smart_str.h"
+#include "cJSON.h"
 
 static int ROW, COL;
 static int currrow = 1;
@@ -61,26 +64,26 @@ static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, u
     mvprintw(y, x + i + 2, "%d/%d/%d", v1, v2, total);
 }
 
-static void draw_worker_stats()
+static void draw_worker_stats(int total, int active, int max)
 {
     zs_select_color(ZS_COLOR_WHITE);
     char worker_stats[] = "    Worker Stats: ";
     char tmp[32] = {0};
     mvaddnstr(currrow++, LEFT_ALIGN, worker_stats, sizeof(worker_stats));
-    sprintf(tmp, "%d/%d/%d", 64, 30, 50);
+    sprintf(tmp, "%d/%d/%d", total, active, max);
     draw_progress_bar(sizeof(worker_stats) + 1, 3,
-            COL - sizeof(worker_stats) - strlen(tmp) - 7, 64, 30, 50);
+            COL - sizeof(worker_stats) - strlen(tmp) - 7, total, active, max);
 }
 
-static void draw_task_worker_stats()
+static void draw_task_worker_stats(int total, int active, int max)
 {
     zs_select_color(ZS_COLOR_WHITE);
     char tmp[32] = {0};
     char worker_stats[] = "TaskWorker Stats: ";
-    sprintf(tmp, "%d/%d/%d", 64, 20, 40);
+    sprintf(tmp, "%d/%d/%d", total, active, max);
     mvaddnstr(currrow++, LEFT_ALIGN, worker_stats, sizeof(worker_stats));
     draw_progress_bar(sizeof(worker_stats) + 1, 4,
-            COL - sizeof(worker_stats) - strlen(tmp) - 7, 64, 20, 40);
+            COL - sizeof(worker_stats) - strlen(tmp) - 7, total, active, max);
     currrow++;
 }
 
@@ -115,7 +118,7 @@ static void draw_text_with_width(int y, int x, char *label, int total_width, cha
     zs_bold_off();
 }
 
-static void draw_base_info()
+static void draw_base_info(zs_base_info *base)
 {
     int left_offset = 0;
 #define line_step() do {\
@@ -126,19 +129,21 @@ static void draw_base_info()
         left_offset = BASE_INFO_WIDTH; \
     } \
 } while (0)
-    draw_text_with_width(currrow, LEFT_ALIGN, "start time:     ", BASE_INFO_WIDTH, "2017-10-11 11:11:11");
+    draw_text_with_width(currrow, LEFT_ALIGN, "start time:     ", BASE_INFO_WIDTH, "%s", base->start_time);
     line_step();
-    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "last reload:  ", BASE_INFO_WIDTH, "2017-10-11 11:11:11");
-    draw_text_with_width(currrow, LEFT_ALIGN, "connection num: ", BASE_INFO_WIDTH, "1111");
+    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "last reload:  ", BASE_INFO_WIDTH, base->last_reload);
+    draw_text_with_width(currrow, LEFT_ALIGN, "connection num: ", BASE_INFO_WIDTH, "%d", base->connection_num);
     line_step();
-    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "accept count: ", BASE_INFO_WIDTH, "123123");
-    draw_text_with_width(currrow, LEFT_ALIGN, "close count:    ", BASE_INFO_WIDTH, "1111");
+    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "accept count: ", BASE_INFO_WIDTH, "%d", base->accept_count);
+    draw_text_with_width(currrow, LEFT_ALIGN, "close count:    ", BASE_INFO_WIDTH, "%d", base->close_count);
     line_step();
-    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "tasking num:  ", BASE_INFO_WIDTH, "100");
+    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "tasking num:  ", BASE_INFO_WIDTH, "%d", base->tasking_num);
 
-    draw_text_with_width(currrow, LEFT_ALIGN, "worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 100, 200);
+    draw_text_with_width(currrow, LEFT_ALIGN, "worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d",
+            base->worker_normal_exit, base->worker_abnormal_exit);
     line_step();
-    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "task worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d", 50, 100);
+    draw_text_with_width(currrow++, LEFT_ALIGN + left_offset, "task worker exit count(normal/abnomal): ", BASE_INFO_WIDTH, "%d/%d",
+            base->task_worker_normal_exit, base->task_worker_abnormal_exit);
 }
 
 static zs_worker_detail *worker_detail_new(char *title, int width, int height, int x, int y, int total_worker)
@@ -412,6 +417,13 @@ static int parse_options(int argc, char **argv)
     return 0;
 }
 
+size_t curl_write(void *ptr, size_t size, size_t count, void *stream)
+{
+    smart_str_appendl((smart_str *)stream, (char *)ptr, size * count);
+    smart_str_0((smart_str*)stream);
+    return size * count;
+}
+
 static int curl_init()
 {
     CURLcode return_code;
@@ -427,6 +439,8 @@ static int curl_init()
         fprintf(stderr, "init curl failed.\n");
         return -1;
     }
+    curl_easy_setopt(curl, CURLOPT_URL, request_url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
     return 0;
 }
 
@@ -438,8 +452,74 @@ static void curl_cleanup()
     curl_global_cleanup();
 }
 
+static int unix2time(int unix, char *dst, int len)
+{
+    time_t t = unix;
+    struct tm *p;
+    p = gmtime(&t);
+    return strftime(dst, len, "%Y-%m-%d %H:%M:%S", p);
+}
+
 static int refresh_all()
 {
+    assert(curl != NULL);
+
+    CURLcode res;
+    smart_str str = {0};
+    char tmp_st[128] = {0};
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &str);
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK) {
+        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        return -1;
+    }
+
+    cJSON *root = cJSON_Parse(str.c);
+    cJSON *total_worker = cJSON_GetObjectItem(root, "total_worker");
+    cJSON *active_worker = cJSON_GetObjectItem(root, "active_worker");
+    cJSON *max_active_worker = cJSON_GetObjectItem(root, "max_active_worker");
+    draw_worker_stats(total_worker->valueint, active_worker->valueint, max_active_worker->valueint);
+
+    cJSON *total_task_worker = cJSON_GetObjectItem(root, "total_task_worker");
+    cJSON *active_task_worker = cJSON_GetObjectItem(root, "active_task_worker");
+    cJSON *max_active_task_worker = cJSON_GetObjectItem(root, "max_active_task_worker");
+    draw_task_worker_stats(total_task_worker->valueint, active_task_worker->valueint, max_active_task_worker->valueint);
+
+    zs_base_info base;
+    cJSON *start_time = cJSON_GetObjectItem(root, "start_time");
+    cJSON *last_reload = cJSON_GetObjectItem(root, "last_reload");
+    cJSON *connection_num = cJSON_GetObjectItem(root, "connection_num");
+    cJSON *accept_count = cJSON_GetObjectItem(root, "accept_count");
+    cJSON *close_count = cJSON_GetObjectItem(root, "close_count");
+    cJSON *tasking_num = cJSON_GetObjectItem(root, "tasking_num");
+    cJSON *worker_normal_exit = cJSON_GetObjectItem(root, "worker_normal_exit");
+    cJSON *worker_abnormal_exit = cJSON_GetObjectItem(root, "worker_abnormal_exit");
+    cJSON *task_worker_normal_exit = cJSON_GetObjectItem(root, "task_worker_normal_exit");
+    cJSON *task_worker_abnormal_exit = cJSON_GetObjectItem(root, "task_worker_abnormal_exit");
+
+    if (!start_time->valuestring) {
+        unix2time(start_time->valueint, base.start_time, sizeof(base.start_time));
+    } else {
+        strcpy(base.start_time, start_time->valuestring);
+    }
+    if (!last_reload->valuestring) {
+        unix2time(last_reload->valueint, base.last_reload, sizeof(base.last_reload));
+    } else {
+        strcpy(base.last_reload, last_reload->valuestring);
+    }
+    base.connection_num = connection_num->valueint;
+    base.accept_count = accept_count->valuedouble;
+    base.close_count = close_count->valuedouble;
+    base.tasking_num= tasking_num->valueint;
+    base.worker_normal_exit = worker_normal_exit->valueint;
+    base.worker_abnormal_exit = worker_abnormal_exit->valueint;
+    base.task_worker_normal_exit = task_worker_normal_exit->valueint;
+    base.task_worker_abnormal_exit = task_worker_abnormal_exit->valueint;
+
+    draw_base_info(&base);
+
+    cJSON_Delete(root);
+    smart_str_free(&str);
     return 0;
 }
 
@@ -460,10 +540,11 @@ int main(int argc, char **argv)
     curs_set(0);
     color_init();
     getmaxyx(stdscr, ROW, COL);
+
     draw_title();
-    draw_worker_stats();
-    draw_task_worker_stats();
-    draw_base_info();
+    if (refresh_all() < 0) {
+        goto fatal;
+    }
     draw_worker_detail();
     draw_task_worker_detail();
     refresh();
@@ -496,6 +577,7 @@ int main(int argc, char **argv)
     if (worker_details[1]) {
         worker_detail_free(worker_details[1]);
     }
+fatal:
     endwin();     /* cleanup curses */
     curl_cleanup();
     return 0;

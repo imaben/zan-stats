@@ -54,6 +54,19 @@ typedef struct {
     int cursor;
 } zs_worker_detail;
 
+typedef struct {
+    char start_time[32];
+    char last_reload[32];
+    uint32_t connection_num;
+    uint64_t accept_count;
+    uint64_t close_count;
+    uint32_t tasking_num;
+    uint32_t worker_normal_exit;
+    uint32_t worker_abnormal_exit;
+    uint32_t task_worker_normal_exit;
+    uint32_t task_worker_abnormal_exit;
+} zs_base_info;
+
 #define zs_select_color(color) attrset(COLOR_PAIR(color))
 #define zs_bold_on() attron(A_BOLD)
 #define zs_bold_off() attroff(A_BOLD)

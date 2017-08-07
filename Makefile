@@ -4,7 +4,7 @@ LIBS=-lncursesw -lm -lpanelw -lcurl -L/usr/local/Cellar/ncurses/6.0_1/lib/
 PROC=zan-stats
 
 all:
-	$(CC) $(CFLAGS) -o $(PROC) stats.c $(LIBS)
+	$(CC) $(CFLAGS) -o $(PROC) stats.c cJSON.c $(LIBS)
 
 clean:
 	rm -rf zan-stats
