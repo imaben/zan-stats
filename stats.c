@@ -186,7 +186,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
         detail->th_width[i] = col_width;
     }
     if ((pad = (col_width * WORKER_DETAIL_TH_NUM)) < th_width) {
-        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += pad;
+        detail->th_width[WORKER_DETAIL_TH_NUM - 1] += (th_width - pad);
     }
 
     // to draw
@@ -196,7 +196,7 @@ static zs_worker_detail *worker_detail_new(char *title, int width, int height, i
     wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_GREEN));
     zs_bold_on();
     for (i = 0; i < WORKER_DETAIL_TH_NUM; i++) {
-        sprintf(fmt, "%%-%ds", detail->th_width[0]);
+        sprintf(fmt, "%%-%ds", detail->th_width[i]);
         sprintf(tmp, fmt, th[i]);
         wprintw(detail->win, "%s", tmp);
     }
@@ -289,25 +289,10 @@ static void draw_worker_detail(int worker_num)
             width, height, LEFT_ALIGN, currrow, worker_num);
     worker_details[0] = worker_detail;
     current_detail = worker_detail;
-#if 0
-    struct worker_detail_item item;
-    for (i = 0; i < worker_num; i++) {
-        item.worker_id = i + 1;
-        strcpy(item.start_time, "11:11:11");
-        item.total_request = i * 201 + 10;
-        item.request = i * 101 + 4;
-        if (i % 2 == 0) {
-            strcpy(item.status, "BUSY");
-        } else {
-            strcpy(item.status, "IDLE");
-        }
-        worker_detail_update(worker_detail, i, &item);
-    }
-#endif
+
     refresh();
     update_panels();
     doupdate();
-    worker_detail_refresh(worker_detail);
 }
 
 static void draw_task_worker_detail(int worker_num)
@@ -318,22 +303,7 @@ static void draw_task_worker_detail(int worker_num)
     zs_worker_detail *worker_detail = worker_detail_new("Task Worker Detail",
             width, height, LEFT_ALIGN + width + 11, currrow, worker_num);
     worker_details[1] = worker_detail;
-#if 0
-    struct worker_detail_item item;
-    for (i = 0; i < worker_num; i++) {
-        item.worker_id = i + 1;
-        strcpy(item.start_time, "11:11:11");
-        item.total_request = i * 201 + 10;
-        item.request = i * 101 + 4;
-        if (i % 2 == 0) {
-            strcpy(item.status, "BUSY");
-        } else {
-            strcpy(item.status, "IDLE");
-        }
-        worker_detail_update(worker_detail, i, &item);
-    }
-#endif
-    worker_detail_refresh(worker_detail);
+
     refresh();
     update_panels();
     doupdate();
@@ -347,7 +317,9 @@ static void key_event_handler(int key)
                 current_detail->offset++;
             }
         } else {
-            current_detail->cursor++;
+            if ((current_detail->cursor + 1)< current_detail->total_worker) {
+                current_detail->cursor++;
+            }
         }
     } else if (key == KEY_UP) {
         if (current_detail->cursor == 0) {
@@ -363,7 +335,7 @@ static void key_event_handler(int key)
             worker_detail_refresh(worker_details[1]);
         }
     } else if (key == KEY_RIGHT) {
-        if (current_detail == worker_details[0]) {
+        if (current_detail == worker_details[0] && worker_details[1]->total_worker > 0) {
             current_detail = worker_details[1];
             worker_detail_refresh(worker_details[0]);
         }
@@ -454,21 +426,33 @@ static void curl_cleanup()
     curl_global_cleanup();
 }
 
-static int unix2time(int unix, char *dst, int len)
+static int unix2time(int ut, char *dst, int len)
 {
-    time_t t = unix;
+    time_t t = ut;
     struct tm *p;
     p = gmtime(&t);
     return strftime(dst, len, "%Y-%m-%d %H:%M:%S", p);
 }
 
-static int format_start_time(int unix, char *dst, int len)
+static int format_start_time(int ut, char *dst, int len)
 {
     time_t now = time(NULL);
-    int sub = now - unix;
-    if (sub <= 0) {
+    unsigned long long total_seconds = now - ut;
+    if (total_seconds <= 0) {
         strncpy(dst, "00:00:00", len);
         return 0;
+    }
+    unsigned long long hours = total_seconds / 3600;
+    int minutes = (total_seconds / 60) % 60;
+    int seconds = total_seconds % 60;
+    if (hours >= 100) {
+        snprintf(dst, len, "%7lluh", hours);
+    } else {
+        if (hours) {
+            snprintf(dst, len, "%2lluh%02d:%02d", hours, minutes, seconds);
+        } else {
+            snprintf(dst, len, "%2d:%02d.%02d ", hours, minutes, seconds);
+        }
     }
     return 0;
 }
@@ -532,27 +516,36 @@ static int refresh_all()
 
     draw_worker_detail(total_worker->valueint);
     draw_task_worker_detail(total_task_worker->valueint);
-#if 0
-    struct worker_detail_item *worker_detail_items, *task_worker_detail_items;
-    if (total_worker->valueint) {
-        worker_detail_items = (struct worker_detail_item *)
-            malloc(sizeof(struct worker_detail_item) * total_worker->valueint);
-    }
-    if (total_task_worker->valueint) {
-        task_worker_detail_items = (struct worker_detail_item *)
-            malloc(sizeof(struct worker_detail_item) * total_task_worker->valueint);
-    }
-#endif
+
     cJSON *worker, *workers_detail = cJSON_GetObjectItem(root, "workers_detail");
     int i, j = 0, k = 0, total;
     total = total_worker->valueint + total_task_worker->valueint;
     struct worker_detail_item item;
+    cJSON *item_start_time, *item_total_request_count,
+          *item_request_count, *item_status, *item_type;
     for (i = 0; i < total; i++) {
         worker = cJSON_GetArrayItem(workers_detail, i);
-        item.worker_id = i;
-        // todo start_time
-    }
+        item_start_time = cJSON_GetObjectItem(worker, "start_time");
+        item_total_request_count = cJSON_GetObjectItem(worker, "total_request_count");
+        item_request_count = cJSON_GetObjectItem(worker, "request_count");
+        item_status = cJSON_GetObjectItem(worker, "status");
+        item_type = cJSON_GetObjectItem(worker, "type");
 
+        item.worker_id = i;
+        format_start_time(item_start_time->valueint, item.start_time, sizeof(item.start_time));
+        item.total_request = item_total_request_count->valuedouble;
+        item.request = item_request_count->valuedouble;
+        strcpy(item.status, item_status->valuestring);
+        if (strcasecmp("worker", item_type->valuestring) == 0) {
+            worker_detail_update(worker_details[0], j, &item);
+            j++;
+        } else if (strcasecmp("task_worker", item_type->valuestring) == 0) {
+            worker_detail_update(worker_details[1], k, &item);
+            k++;
+        }
+    }
+    worker_detail_refresh(worker_details[0]);
+    worker_detail_refresh(worker_details[1]);
     cJSON_Delete(root);
     smart_str_free(&str);
     return 0;
