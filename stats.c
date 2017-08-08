@@ -276,19 +276,20 @@ static void worker_detail_free(zs_worker_detail* d)
     free(d);
 }
 
-static void draw_worker_detail()
+static void draw_worker_detail(int worker_num)
 {
     currrow++;
     currrow++;
 
-    int worker_num = 32;
     int width, height, i;
     width = (COL - (LEFT_ALIGN * 2)) / 2 - 5;
     height = ROW - currrow - 1;
+
     zs_worker_detail *worker_detail = worker_detail_new("Worker Detail",
-            width, height, LEFT_ALIGN, currrow, 32);
+            width, height, LEFT_ALIGN, currrow, worker_num);
     worker_details[0] = worker_detail;
     current_detail = worker_detail;
+#if 0
     struct worker_detail_item item;
     for (i = 0; i < worker_num; i++) {
         item.worker_id = i + 1;
@@ -302,21 +303,22 @@ static void draw_worker_detail()
         }
         worker_detail_update(worker_detail, i, &item);
     }
+#endif
     refresh();
     update_panels();
     doupdate();
     worker_detail_refresh(worker_detail);
 }
 
-static void draw_task_worker_detail()
+static void draw_task_worker_detail(int worker_num)
 {
-    int worker_num = 32;
     int width, height, i;
     width = (COL - (LEFT_ALIGN * 2)) / 2 - 5;
     height = ROW - currrow - 1;
     zs_worker_detail *worker_detail = worker_detail_new("Task Worker Detail",
             width, height, LEFT_ALIGN + width + 11, currrow, worker_num);
     worker_details[1] = worker_detail;
+#if 0
     struct worker_detail_item item;
     for (i = 0; i < worker_num; i++) {
         item.worker_id = i + 1;
@@ -330,7 +332,7 @@ static void draw_task_worker_detail()
         }
         worker_detail_update(worker_detail, i, &item);
     }
-
+#endif
     worker_detail_refresh(worker_detail);
     refresh();
     update_panels();
@@ -460,6 +462,17 @@ static int unix2time(int unix, char *dst, int len)
     return strftime(dst, len, "%Y-%m-%d %H:%M:%S", p);
 }
 
+static int format_start_time(int unix, char *dst, int len)
+{
+    time_t now = time(NULL);
+    int sub = now - unix;
+    if (sub <= 0) {
+        strncpy(dst, "00:00:00", len);
+        return 0;
+    }
+    return 0;
+}
+
 static int refresh_all()
 {
     assert(curl != NULL);
@@ -515,8 +528,30 @@ static int refresh_all()
     base.worker_abnormal_exit = worker_abnormal_exit->valueint;
     base.task_worker_normal_exit = task_worker_normal_exit->valueint;
     base.task_worker_abnormal_exit = task_worker_abnormal_exit->valueint;
-
     draw_base_info(&base);
+
+    draw_worker_detail(total_worker->valueint);
+    draw_task_worker_detail(total_task_worker->valueint);
+#if 0
+    struct worker_detail_item *worker_detail_items, *task_worker_detail_items;
+    if (total_worker->valueint) {
+        worker_detail_items = (struct worker_detail_item *)
+            malloc(sizeof(struct worker_detail_item) * total_worker->valueint);
+    }
+    if (total_task_worker->valueint) {
+        task_worker_detail_items = (struct worker_detail_item *)
+            malloc(sizeof(struct worker_detail_item) * total_task_worker->valueint);
+    }
+#endif
+    cJSON *worker, *workers_detail = cJSON_GetObjectItem(root, "workers_detail");
+    int i, j = 0, k = 0, total;
+    total = total_worker->valueint + total_task_worker->valueint;
+    struct worker_detail_item item;
+    for (i = 0; i < total; i++) {
+        worker = cJSON_GetArrayItem(workers_detail, i);
+        item.worker_id = i;
+        // todo start_time
+    }
 
     cJSON_Delete(root);
     smart_str_free(&str);
@@ -545,8 +580,6 @@ int main(int argc, char **argv)
     if (refresh_all() < 0) {
         goto fatal;
     }
-    draw_worker_detail();
-    draw_task_worker_detail();
     refresh();
 
     // main loop
