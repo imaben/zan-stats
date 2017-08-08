@@ -548,7 +548,16 @@ static int refresh_all()
     worker_detail_refresh(worker_details[1]);
     cJSON_Delete(root);
     smart_str_free(&str);
+
     return 0;
+}
+
+static void alarm_handler()
+{
+    currrow = 3;
+    refresh_all();
+    signal(SIGALRM, alarm_handler);
+    alarm(update_interval);
 }
 
 int main(int argc, char **argv)
@@ -573,6 +582,7 @@ int main(int argc, char **argv)
     if (refresh_all() < 0) {
         goto fatal;
     }
+    alarm_handler();
     refresh();
 
     // main loop
