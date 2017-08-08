@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <time.h>
+#include <signal.h>
+#include <inttypes.h>
 #include <curl/curl.h>
 #include "stats.h"
 #include "smart_str.h"
@@ -514,8 +516,12 @@ static int refresh_all()
     base.task_worker_abnormal_exit = task_worker_abnormal_exit->valueint;
     draw_base_info(&base);
 
-    draw_worker_detail(total_worker->valueint);
-    draw_task_worker_detail(total_task_worker->valueint);
+    if (worker_details[0] == NULL) {
+        draw_worker_detail(total_worker->valueint);
+    }
+    if (worker_details[1] == NULL) {
+        draw_task_worker_detail(total_task_worker->valueint);
+    }
 
     cJSON *worker, *workers_detail = cJSON_GetObjectItem(root, "workers_detail");
     int i, j = 0, k = 0, total;
@@ -531,21 +537,23 @@ static int refresh_all()
         item_status = cJSON_GetObjectItem(worker, "status");
         item_type = cJSON_GetObjectItem(worker, "type");
 
-        item.worker_id = i;
         format_start_time(item_start_time->valueint, item.start_time, sizeof(item.start_time));
         item.total_request = item_total_request_count->valuedouble;
         item.request = item_request_count->valuedouble;
         strcpy(item.status, item_status->valuestring);
         if (strcasecmp("worker", item_type->valuestring) == 0) {
+            item.worker_id = j;
             worker_detail_update(worker_details[0], j, &item);
             j++;
         } else if (strcasecmp("task_worker", item_type->valuestring) == 0) {
+            item.worker_id = k;
             worker_detail_update(worker_details[1], k, &item);
             k++;
         }
     }
     worker_detail_refresh(worker_details[0]);
     worker_detail_refresh(worker_details[1]);
+    refresh();
     cJSON_Delete(root);
     smart_str_free(&str);
 
