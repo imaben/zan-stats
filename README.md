@@ -29,7 +29,7 @@ options:
  -v        show version
  ```
 
-** Server **
+**Server**
 
 ```php
 $http = new swoole_http_server('0.0.0.0', 10900);
@@ -42,7 +42,7 @@ $http->on('request', function ($request, $response) use ($http) {
 
 ```
 
-** Client **
+**Client**
 
 ```shell
 ./zan-stats http://127.0.0.1/stats
