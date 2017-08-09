@@ -9,6 +9,8 @@ _____              _____ __        __
 
 ```
 
+![](http://imaben.github.io/img/zan-stats.png)
+
 ## Build
 
 ```
