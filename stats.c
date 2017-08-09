@@ -13,10 +13,10 @@
 #include "cJSON.h"
 
 static int ROW, COL;
-static int currrow = 1;
+static int currrow         = 1;
 static int update_interval = 1;
-static char *request_url = NULL;
-static int win_inited = 0;
+static char *request_url   = NULL;
+static int win_inited      = 0;
 static CURL *curl;
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2);
@@ -33,12 +33,12 @@ static zs_worker_detail *worker_details[2] = {0};
 static void color_init()
 {
     use_default_colors();
-    init_pair(ZS_COLOR_WHITE, COLOR_WHITE, -1);
-    init_pair(ZS_COLOR_RED, COLOR_RED, -1);
-    init_pair(ZS_COLOR_GREEN, COLOR_GREEN, -1);
-    init_pair(ZS_COLOR_CYAN, COLOR_CYAN, -1);
-    init_pair(ZS_COLOR_BLACK_GREEN, 0, COLOR_GREEN);
-    init_pair(ZS_COLOR_BLACK_CYAN, 0, COLOR_CYAN);
+    init_pair(ZS_COLOR_WHITE,       COLOR_WHITE, -1);
+    init_pair(ZS_COLOR_RED,         COLOR_RED,   -1);
+    init_pair(ZS_COLOR_GREEN,       COLOR_GREEN, -1);
+    init_pair(ZS_COLOR_CYAN,        COLOR_CYAN,  -1);
+    init_pair(ZS_COLOR_BLACK_GREEN, 0,           COLOR_GREEN);
+    init_pair(ZS_COLOR_BLACK_CYAN,  0,           COLOR_CYAN);
 }
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2)
@@ -478,26 +478,26 @@ static int refresh_all()
     }
 
     cJSON *root = cJSON_Parse(str.c);
-    cJSON *total_worker = cJSON_GetObjectItem(root, "total_worker");
-    cJSON *active_worker = cJSON_GetObjectItem(root, "active_worker");
+    cJSON *total_worker      = cJSON_GetObjectItem(root, "total_worker");
+    cJSON *active_worker     = cJSON_GetObjectItem(root, "active_worker");
     cJSON *max_active_worker = cJSON_GetObjectItem(root, "max_active_worker");
     draw_worker_stats(total_worker->valueint, active_worker->valueint, max_active_worker->valueint);
 
-    cJSON *total_task_worker = cJSON_GetObjectItem(root, "total_task_worker");
-    cJSON *active_task_worker = cJSON_GetObjectItem(root, "active_task_worker");
+    cJSON *total_task_worker      = cJSON_GetObjectItem(root, "total_task_worker");
+    cJSON *active_task_worker     = cJSON_GetObjectItem(root, "active_task_worker");
     cJSON *max_active_task_worker = cJSON_GetObjectItem(root, "max_active_task_worker");
     draw_task_worker_stats(total_task_worker->valueint, active_task_worker->valueint, max_active_task_worker->valueint);
 
     zs_base_info base;
-    cJSON *start_time = cJSON_GetObjectItem(root, "start_time");
-    cJSON *last_reload = cJSON_GetObjectItem(root, "last_reload");
-    cJSON *connection_num = cJSON_GetObjectItem(root, "connection_num");
-    cJSON *accept_count = cJSON_GetObjectItem(root, "accept_count");
-    cJSON *close_count = cJSON_GetObjectItem(root, "close_count");
-    cJSON *tasking_num = cJSON_GetObjectItem(root, "tasking_num");
-    cJSON *worker_normal_exit = cJSON_GetObjectItem(root, "worker_normal_exit");
-    cJSON *worker_abnormal_exit = cJSON_GetObjectItem(root, "worker_abnormal_exit");
-    cJSON *task_worker_normal_exit = cJSON_GetObjectItem(root, "task_worker_normal_exit");
+    cJSON *start_time                = cJSON_GetObjectItem(root, "start_time");
+    cJSON *last_reload               = cJSON_GetObjectItem(root, "last_reload");
+    cJSON *connection_num            = cJSON_GetObjectItem(root, "connection_num");
+    cJSON *accept_count              = cJSON_GetObjectItem(root, "accept_count");
+    cJSON *close_count               = cJSON_GetObjectItem(root, "close_count");
+    cJSON *tasking_num               = cJSON_GetObjectItem(root, "tasking_num");
+    cJSON *worker_normal_exit        = cJSON_GetObjectItem(root, "worker_normal_exit");
+    cJSON *worker_abnormal_exit      = cJSON_GetObjectItem(root, "worker_abnormal_exit");
+    cJSON *task_worker_normal_exit   = cJSON_GetObjectItem(root, "task_worker_normal_exit");
     cJSON *task_worker_abnormal_exit = cJSON_GetObjectItem(root, "task_worker_abnormal_exit");
 
     if (!start_time->valuestring) {
@@ -514,13 +514,13 @@ static int refresh_all()
     } else {
         strcpy(base.last_reload, last_reload->valuestring);
     }
-    base.connection_num = connection_num->valueint;
-    base.accept_count = accept_count->valuedouble;
-    base.close_count = close_count->valuedouble;
-    base.tasking_num= tasking_num->valueint;
-    base.worker_normal_exit = worker_normal_exit->valueint;
-    base.worker_abnormal_exit = worker_abnormal_exit->valueint;
-    base.task_worker_normal_exit = task_worker_normal_exit->valueint;
+    base.connection_num            = connection_num->valueint;
+    base.accept_count              = accept_count->valuedouble;
+    base.close_count               = close_count->valuedouble;
+    base.tasking_num               = tasking_num->valueint;
+    base.worker_normal_exit        = worker_normal_exit->valueint;
+    base.worker_abnormal_exit      = worker_abnormal_exit->valueint;
+    base.task_worker_normal_exit   = task_worker_normal_exit->valueint;
     base.task_worker_abnormal_exit = task_worker_abnormal_exit->valueint;
     draw_base_info(&base);
 
@@ -538,12 +538,12 @@ static int refresh_all()
     cJSON *item_start_time, *item_total_request_count,
           *item_request_count, *item_status, *item_type;
     for (i = 0; i < total; i++) {
-        worker = cJSON_GetArrayItem(workers_detail, i);
-        item_start_time = cJSON_GetObjectItem(worker, "start_time");
+        worker                   = cJSON_GetArrayItem(workers_detail, i);
+        item_start_time          = cJSON_GetObjectItem(worker, "start_time");
         item_total_request_count = cJSON_GetObjectItem(worker, "total_request_count");
-        item_request_count = cJSON_GetObjectItem(worker, "request_count");
-        item_status = cJSON_GetObjectItem(worker, "status");
-        item_type = cJSON_GetObjectItem(worker, "type");
+        item_request_count       = cJSON_GetObjectItem(worker, "request_count");
+        item_status              = cJSON_GetObjectItem(worker, "status");
+        item_type                = cJSON_GetObjectItem(worker, "type");
 
         format_start_time(item_start_time->valueint, item.start_time, sizeof(item.start_time));
         item.total_request = item_total_request_count->valuedouble;
@@ -624,7 +624,6 @@ int main(int argc, char **argv)
     if (worker_details[1]) {
         worker_detail_free(worker_details[1]);
     }
-fatal:
     endwin();     /* cleanup curses */
     curl_cleanup();
     return 0;
