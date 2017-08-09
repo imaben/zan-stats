@@ -9,6 +9,15 @@ _____              _____ __        __
 
 ```
 
+## Build
+
+```
+$ git clone https://github.com/imaben/zan-stats.git
+$ cd zan-stats
+$ make
+$ ./zan-stats <url>
+```
+
 ## Usage
 
 ```
@@ -19,8 +28,29 @@ options:
  -h        show helper
  -v        show version
  ```
+
+** Server **
+
+```php
+$http = new swoole_http_server('0.0.0.0', 10900);
+$http->on('request', function ($request, $response) use ($http) {
+    if ($request->server['request_uri'] == '/stats') {
+        $response->write(json_encode($http->stats()));
+        return;
+    }
+});
+
+```
+
+** Client **
+
+```shell
+./zan-stats http://127.0.0.1/stats
+```
  
  ## Dependencies
  
  - libcurl
  - ncurses
+
+

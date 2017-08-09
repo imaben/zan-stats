@@ -16,11 +16,19 @@ static int ROW, COL;
 static int currrow = 1;
 static int update_interval = 1;
 static char *request_url = NULL;
+static int win_inited = 0;
 static CURL *curl;
 
 static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, uint v2);
 static zs_worker_detail *current_detail = NULL;
 static zs_worker_detail *worker_details[2] = {0};
+
+#define fatal(fmt, ...) do {             \
+    if (win_inited) endwin();                            \
+    fprintf(stderr, fmt, ##__VA_ARGS__); \
+    exit(1);                             \
+} while (0)
+
 
 static void color_init()
 {
@@ -232,9 +240,9 @@ static void worker_detail_refresh(zs_worker_detail *detail)
             wattron(detail->win, COLOR_PAIR(ZS_COLOR_BLACK_CYAN));
         }
         // worker_id
-        sprintf(fmt, "%%-%dd", detail->th_width[0]);
+        sprintf(fmt, "%%-%dd", detail->th_width[0] - 1);
         sprintf(tmp, fmt, detail->item[i].worker_id);
-        wprintw(detail->win, "%s", tmp);
+        wprintw(detail->win, " %s", tmp);
 
         // start_time
         sprintf(fmt, "%%-%ds", detail->th_width[1]);
@@ -400,24 +408,21 @@ size_t curl_write(void *ptr, size_t size, size_t count, void *stream)
     return size * count;
 }
 
-static int curl_init()
+static void curl_init()
 {
     CURLcode return_code;
     return_code = curl_global_init(CURL_GLOBAL_ALL);
     if (CURLE_OK != return_code)
     {
-        fprintf(stderr, "init libcurl failed.\n");
-        return -1;
+        fatal("init libcurl failed.\n");
     }
 
     curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "init curl failed.\n");
-        return -1;
+        fatal("init curl failed.\n");
     }
     curl_easy_setopt(curl, CURLOPT_URL, request_url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write);
-    return 0;
 }
 
 static void curl_cleanup()
@@ -441,7 +446,7 @@ static int format_start_time(int ut, char *dst, int len)
     time_t now = time(NULL);
     unsigned long long total_seconds = now - ut;
     if (total_seconds <= 0) {
-        strncpy(dst, "00:00:00", len);
+        strncpy(dst, "0:00:00", len);
         return 0;
     }
     unsigned long long hours = total_seconds / 3600;
@@ -465,11 +470,10 @@ static int refresh_all()
 
     CURLcode res;
     smart_str str = {0};
-    char tmp_st[128] = {0};
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &str);
     res = curl_easy_perform(curl);
     if(res != CURLE_OK) {
-        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        fatal("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
         return -1;
     }
 
@@ -502,7 +506,11 @@ static int refresh_all()
         strcpy(base.start_time, start_time->valuestring);
     }
     if (!last_reload->valuestring) {
-        unix2time(last_reload->valueint, base.last_reload, sizeof(base.last_reload));
+        if (!last_reload->valueint) {
+            strcpy(base.last_reload, "(null)");
+        } else {
+            unix2time(last_reload->valueint, base.last_reload, sizeof(base.last_reload));
+        }
     } else {
         strcpy(base.last_reload, last_reload->valuestring);
     }
@@ -575,9 +583,7 @@ int main(int argc, char **argv)
     }
 
     // init curl
-    if (curl_init() < 0) {
-        return 1;
-    }
+    curl_init();
     initscr();    /* initializes curses */
     start_color();
     noecho();
@@ -585,11 +591,8 @@ int main(int argc, char **argv)
     curs_set(0);
     color_init();
     getmaxyx(stdscr, ROW, COL);
-
+    win_inited = 1;
     draw_title();
-    if (refresh_all() < 0) {
-        goto fatal;
-    }
     alarm_handler();
     refresh();
 
