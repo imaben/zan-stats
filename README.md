@@ -1,5 +1,7 @@
 # zan-stats
 
+[![License](https://img.shields.io/badge/license-apache2-blue.svg)](LICENSE)
+
 ```
 _____              _____ __        __
 /__  /  ____ _____ / ___// /_____ _/ /______
