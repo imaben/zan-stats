@@ -478,6 +478,9 @@ static int refresh_all()
     }
 
     cJSON *root = cJSON_Parse(str.c);
+    if (!root) {
+        fatal("Invalid stats data");
+    }
     cJSON *total_worker      = cJSON_GetObjectItem(root, "total_worker");
     cJSON *active_worker     = cJSON_GetObjectItem(root, "active_worker");
     cJSON *max_active_worker = cJSON_GetObjectItem(root, "max_active_worker");
@@ -507,7 +510,7 @@ static int refresh_all()
     }
     if (!last_reload->valuestring) {
         if (!last_reload->valueint) {
-            strcpy(base.last_reload, "(null)");
+            strcpy(base.last_reload, "(never)");
         } else {
             unix2time(last_reload->valueint, base.last_reload, sizeof(base.last_reload));
         }
