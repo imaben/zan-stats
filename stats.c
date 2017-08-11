@@ -464,6 +464,30 @@ static int format_start_time(int ut, char *dst, int len)
     return 0;
 }
 
+static int check_stats_data(cJSON *root)
+{
+    if (!root) {
+        return 0;
+    }
+    return (int)cJSON_HasObjectItem(root, "total_worker") &&
+        cJSON_HasObjectItem(root, "active_worker") &&
+        cJSON_HasObjectItem(root, "max_active_worker") &&
+        cJSON_HasObjectItem(root, "total_task_worker") &&
+        cJSON_HasObjectItem(root, "active_task_worker") &&
+        cJSON_HasObjectItem(root, "max_active_task_worker") &&
+        cJSON_HasObjectItem(root, "start_time") &&
+        cJSON_HasObjectItem(root, "last_reload") &&
+        cJSON_HasObjectItem(root, "connection_num") &&
+        cJSON_HasObjectItem(root, "accept_count") &&
+        cJSON_HasObjectItem(root, "close_count") &&
+        cJSON_HasObjectItem(root, "tasking_num") &&
+        cJSON_HasObjectItem(root, "worker_normal_exit") &&
+        cJSON_HasObjectItem(root, "worker_abnormal_exit") &&
+        cJSON_HasObjectItem(root, "task_worker_normal_exit") &&
+        cJSON_HasObjectItem(root, "task_worker_abnormal_exit") &&
+        cJSON_HasObjectItem(root, "workers_detail");
+}
+
 static int refresh_all()
 {
     assert(curl != NULL);
@@ -478,7 +502,7 @@ static int refresh_all()
     }
 
     cJSON *root = cJSON_Parse(str.c);
-    if (!root) {
+    if (!check_stats_data(root)) {
         fatal("Invalid stats data");
     }
     cJSON *total_worker      = cJSON_GetObjectItem(root, "total_worker");
