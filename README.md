@@ -18,6 +18,8 @@ _____              _____ __        __
 ```
 $ git clone https://github.com/imaben/zan-stats.git
 $ cd zan-stats
+$ ./autogen.sh
+$ ./configure
 $ make
 $ ./zan-stats <url>
 ```
