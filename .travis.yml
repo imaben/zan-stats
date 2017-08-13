@@ -4,7 +4,6 @@ env:
   - REPORT_EXIT_STATUS=1 NO_INTERACTION=1
 
 before_script:
-    - cd zan-stats
     - ./autogen.sh
     - ./configure
     - make clean
