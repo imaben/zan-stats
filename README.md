@@ -1,6 +1,7 @@
 # zan-stats
 
 [![License](https://img.shields.io/badge/license-apache2-blue.svg)](LICENSE)
+[![Build Status](https://api.travis-ci.org/imaben/zan-stats.svg)](https://travis-ci.org/imaben/zan-stats)
 
 ```
 _____              _____ __        __
