@@ -52,7 +52,7 @@ $http->on('request', function ($request, $response) use ($http) {
 **Client**
 
 ```shell
-./zan-stats http://127.0.0.1/stats
+./zan-stats http://127.0.0.1:10900/stats
 ```
  
  ## Dependencies
