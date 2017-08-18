@@ -295,6 +295,9 @@ static void worker_detail_refresh(zs_worker_detail *detail)
 
 static void worker_detail_free(zs_worker_detail* d)
 {
+    if (d->panel) {
+        del_panel(d->panel);
+    }
     if (d->win) {
         delwin(d->win);
     }
