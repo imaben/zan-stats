@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <inttypes.h>
 #include <curl/curl.h>
+#include <sys/ioctl.h>
 #include "stats.h"
 #include "smart_str.h"
 #include "cJSON.h"
@@ -299,6 +300,7 @@ static void worker_detail_free(zs_worker_detail* d)
         del_panel(d->panel);
     }
     if (d->win) {
+        werase(d->win);
         delwin(d->win);
     }
     if (d->item) {
@@ -616,6 +618,19 @@ static int refresh_all()
     return 0;
 }
 
+static void clean_worker_detail()
+{
+    if (worker_details[0]) {
+        worker_detail_free(worker_details[0]);
+    }
+
+    if (worker_details[1]) {
+        worker_detail_free(worker_details[1]);
+    }
+    worker_details[0] = NULL;
+    worker_details[1] = NULL;
+}
+
 static void alarm_handler()
 {
     currrow = 3;
@@ -624,8 +639,28 @@ static void alarm_handler()
     alarm(update_interval);
 }
 
+void handle_winch(int sig)
+{
+    clean_worker_detail();
+    currrow = 1;
+    erase();
+    struct winsize w;
+    ioctl(0, TIOCGWINSZ, &w);
+    COL = w.ws_col;
+    ROW = w.ws_row;
+    wresize(stdscr, ROW, COL);
+    draw_title();
+    refresh_all();
+}
+
 int main(int argc, char **argv)
 {
+    // init signal
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_handler = handle_winch;
+    sigaction(SIGWINCH, &sa, NULL);
+
     if (parse_options(argc, argv) < 0) {
         return 1;
     }
@@ -665,13 +700,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (worker_details[0]) {
-        worker_detail_free(worker_details[0]);
-    }
-
-    if (worker_details[1]) {
-        worker_detail_free(worker_details[1]);
-    }
+    clean_worker_detail();
     endwin();     /* cleanup curses */
     curl_cleanup();
     return 0;
