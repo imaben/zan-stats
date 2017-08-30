@@ -481,9 +481,9 @@ static int format_start_time(int ut, char *dst, int len)
         snprintf(dst, len, "%7lluh", hours);
     } else {
         if (hours) {
-            snprintf(dst, len, "%2lluh%02d:%02d", hours, minutes, seconds);
+            snprintf(dst, len, "%lluh%02d:%02d", hours, minutes, seconds);
         } else {
-            snprintf(dst, len, "%2d:%02d.%02d ", hours, minutes, seconds);
+            snprintf(dst, len, "%d:%02d.%02d ", hours, minutes, seconds);
         }
     }
     return 0;
