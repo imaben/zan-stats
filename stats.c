@@ -95,11 +95,13 @@ static void draw_progress_bar(uint x, uint y, uint width, uint total, uint v1, u
 
 static void draw_worker_stats(int total, int active, int max)
 {
+    move(currrow, 0);
+    clrtoeol();
     zs_select_color(ZS_COLOR_WHITE);
     char worker_stats[] = "    Worker Stats: ";
     char tmp[32] = {0};
     mvaddnstr(currrow++, LEFT_ALIGN, worker_stats, sizeof(worker_stats));
-    sprintf(tmp, "%d/%d/%d", total, active, max);
+    sprintf(tmp, "%d/%d/%d", total, total, total);
     draw_progress_bar(sizeof(worker_stats) + 1, 3,
             COL - sizeof(worker_stats) - strlen(tmp) - 7, total, active, max);
 }
@@ -109,11 +111,10 @@ static void draw_task_worker_stats(int total, int active, int max)
     zs_select_color(ZS_COLOR_WHITE);
     char tmp[32] = {0};
     char worker_stats[] = "TaskWorker Stats: ";
-    sprintf(tmp, "%d/%d/%d", total, active, max);
+    sprintf(tmp, "%d/%d/%d", total, total, total);
     mvaddnstr(currrow++, LEFT_ALIGN, worker_stats, sizeof(worker_stats));
     draw_progress_bar(sizeof(worker_stats) + 1, 4,
             COL - sizeof(worker_stats) - strlen(tmp) - 7, total, active, max);
-    currrow++;
 }
 
 static void draw_title()
@@ -149,6 +150,7 @@ static void draw_text_with_width(int y, int x, char *label, int total_width, cha
 
 static void draw_base_info(zs_base_info *base)
 {
+    currrow++;
     int left_offset = 0;
 #define line_step() do {\
     if (COL < (BASE_INFO_WIDTH * 2)) { \
@@ -467,7 +469,7 @@ static int unix2time(int ut, char *dst, int len)
 static int format_start_time(int ut, char *dst, int len)
 {
     time_t now = time(NULL);
-    unsigned long long total_seconds = now - ut;
+    long long total_seconds = now - ut;
     if (total_seconds <= 0) {
         strncpy(dst, "0:00:00", len);
         return 0;
